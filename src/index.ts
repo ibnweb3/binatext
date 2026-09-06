@@ -1,6 +1,6 @@
 /**
  * Worker entry. Routes:
- *   POST /sms/textbee | /sms/twilio   inbound SMS webhook
+ *   POST /sms/smsgate | /sms/twilio    inbound SMS webhook
  *   GET  /connect?p=&c=[&level=]      user onboarding -> Binance OAuth
  *   GET  /setup?phone=&s=             operator OAuth bootstrap
  *   ANY  /agents/*                    agents SDK (MCP OAuth callback, etc.)
@@ -25,7 +25,7 @@ export default {
     const path = url.pathname;
 
     try {
-      if (path === "/sms/textbee" || path === "/sms/twilio") return await handleSms(request, env, ctx);
+      if (path === "/sms/smsgate" || path === "/sms/twilio") return await handleSms(request, env, ctx);
       if (path === "/connect") return await handleConnect(request, env);
       if (path === "/setup") return await handleSetup(request, env);
       if (path.startsWith("/agents/")) {

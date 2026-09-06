@@ -15,13 +15,14 @@ GROQ_API_KEY=
 # Only needed if MODEL_FALLBACKS reaches the anthropic entry (paid, ~$1 total).
 ANTHROPIC_API_KEY=
 
-# ─── SMS: textbee.dev (primary) ─────────────────────────────────────────────
-# Install "textbee" on an Android phone with a SIM, link it, create an API key.
-# https://textbee.dev  ·  confirm exact endpoints in scripts/spike-textbee.ts
-TEXTBEE_API_KEY=
-TEXTBEE_DEVICE_ID=
-# Shared secret you configure on the textbee webhook; we HMAC-verify inbound with it.
-TEXTBEE_WEBHOOK_SECRET=
+# ─── SMS: SMS Gateway for Android (primary) ─────────────────────────────────
+# Install the app on any Android + any SIM (a Nigerian line is fine), register
+# with the CLOUD server, create an API user (username/password) in the app.
+# https://sms-gate.app  ·  confirm exact endpoints in scripts/spike-smsgate.ts
+SMSGATE_USERNAME=
+SMSGATE_PASSWORD=
+# Shared secret you set on the webhook; we HMAC-SHA256-verify inbound with it.
+SMSGATE_WEBHOOK_SECRET=
 
 # ─── SMS: Twilio (fallback — only if SMS_PROVIDER=twilio) ───────────────────
 TWILIO_ACCOUNT_SID=

@@ -9,7 +9,7 @@ export class BadPhoneNumberError extends Error {}
 
 /**
  * Normalize to strict E.164 (`+` followed by 8–15 digits, no leading zero).
- * Both textbee and Twilio deliver numbers in or very near this form; we just
+ * Both sms-gate.app and Twilio deliver numbers in or very near this form; we just
  * tidy separators and reject anything that isn't plausibly a real number.
  */
 export function normalizeE164(raw: string): string {

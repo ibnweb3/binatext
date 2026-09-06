@@ -21,7 +21,7 @@ export interface Env {
   MODEL_PROVIDER: string;
   MODEL_ID: string;
   MODEL_FALLBACKS: string;
-  SMS_PROVIDER: "textbee" | "twilio";
+  SMS_PROVIDER: "smsgate" | "twilio";
   MAX_ORDER_USD: string;
   DAILY_USD_CAP: string;
   ALLOWED_SYMBOLS: string;
@@ -35,9 +35,9 @@ export interface Env {
   // secrets (may be undefined)
   GROQ_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
-  TEXTBEE_API_KEY?: string;
-  TEXTBEE_DEVICE_ID?: string;
-  TEXTBEE_WEBHOOK_SECRET?: string;
+  SMSGATE_USERNAME?: string;
+  SMSGATE_PASSWORD?: string;
+  SMSGATE_WEBHOOK_SECRET?: string;
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_FROM_NUMBER?: string;
@@ -63,8 +63,8 @@ export function checkReadiness(env: Env): Readiness {
   if (!model) warnings.push(`model: MODEL_PROVIDER=${env.MODEL_PROVIDER} but its API key is unset — the agent cannot reason.`);
 
   const sms =
-    env.SMS_PROVIDER === "textbee"
-      ? !!(env.TEXTBEE_API_KEY && env.TEXTBEE_DEVICE_ID)
+    env.SMS_PROVIDER === "smsgate"
+      ? !!(env.SMSGATE_USERNAME && env.SMSGATE_PASSWORD)
       : !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER);
   if (!sms) warnings.push(`sms: SMS_PROVIDER=${env.SMS_PROVIDER} but its credentials are incomplete — inbound parses, outbound is a no-op.`);
 

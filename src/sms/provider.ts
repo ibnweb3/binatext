@@ -1,11 +1,11 @@
 /**
  * SMS provider interface. The agent logic never imports a concrete provider —
- * it takes an `SmsProvider`, so textbee (primary) and Twilio (fallback) are a
+ * it takes an `SmsProvider`, so sms-gate.app (primary) and Twilio (fallback) are a
  * one-line swap via `SMS_PROVIDER`.
  */
 
 import type { Env } from "../shared/env.ts";
-import { textbeeProvider } from "./textbee.ts";
+import { smsgateProvider } from "./smsgate.ts";
 import { twilioProvider } from "./twilio.ts";
 
 export interface InboundSms {
@@ -38,7 +38,7 @@ export interface SmsProvider {
 }
 
 export function getSmsProvider(env: Env): SmsProvider {
-  return env.SMS_PROVIDER === "twilio" ? twilioProvider : textbeeProvider;
+  return env.SMS_PROVIDER === "twilio" ? twilioProvider : smsgateProvider;
 }
 
 /** HMAC-SHA256 hex of `body` with `secret`, constant-time compared to `sig`. */

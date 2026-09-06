@@ -14,7 +14,7 @@
     "smoke:statemachine": "vitest run test/smoke-statemachine.test.ts",
     "smoke:sms": "tsx --env-file-if-exists=.dev.vars scripts/smoke-sms.ts",
     "spike:model": "tsx --env-file-if-exists=.dev.vars scripts/spike-model-tools.ts",
-    "spike:textbee": "tsx --env-file-if-exists=.dev.vars scripts/spike-textbee.ts"
+    "spike:smsgate": "tsx --env-file-if-exists=.dev.vars scripts/spike-smsgate.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.0",

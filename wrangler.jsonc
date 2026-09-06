@@ -32,7 +32,7 @@
     "MODEL_ID": "openai/gpt-oss-120b",
     "MODEL_FALLBACKS": "groq:openai/gpt-oss-20b,workers-ai:@cf/openai/gpt-oss-120b,anthropic:claude-haiku-4-5",
 
-    "SMS_PROVIDER": "textbee",
+    "SMS_PROVIDER": "smsgate",
 
     "MAX_ORDER_USD": "5",
     "DAILY_USD_CAP": "20",
@@ -50,7 +50,7 @@
 
   // Secrets (wrangler secret put — never in this file):
   //   GROQ_API_KEY
-  //   TEXTBEE_API_KEY  TEXTBEE_DEVICE_ID  TEXTBEE_WEBHOOK_SECRET
+  //   SMSGATE_USERNAME  SMSGATE_PASSWORD  SMSGATE_WEBHOOK_SECRET
   //   TWILIO_ACCOUNT_SID  TWILIO_AUTH_TOKEN  TWILIO_FROM_NUMBER   (fallback provider)
   //   OPERATOR_NUMBERS   (E.164, comma-separated — gets the demo sub-account + /setup access)
   //   SETUP_SECRET       (operator-only /setup)

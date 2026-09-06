@@ -43,7 +43,7 @@ Text `START`, open the link, pick an access level, approve on Binance. You're ta
 ## Architecture
 
 ```
- textbee.dev (Android+SIM)      Browser (once)            Cron */5
+ sms-gate.app (Android+SIM)     Browser (once)            Cron */5
  inbound SMS ─► webhook         /connect ─► Binance       alert backstop
         │                        OAuth consent                │
         ▼                            │                        ▼
@@ -78,8 +78,8 @@ See [`CLAUDE.md`](./CLAUDE.md) for the annotated tree and dev commands. Full des
 - **Phase 0 · model reliability** — `openai/gpt-oss-120b` on Groq, 49/50 across the 5 demo intents
 
 **Not done yet**
-- Phase 0 spikes: Binance MCP OAuth from a Worker + one real trade (need an Agentic sub-account); textbee wire-format confirmation (need the device)
-- Wire-fixes from the spikes (MCP tool-name map, textbee `SPIKE:` markers)
+- Phase 0 spikes: Binance MCP OAuth from a Worker + one real trade (need an Agentic sub-account); sms-gate.app wire-format confirmation (need the Android device)
+- Wire-fixes from the spikes (MCP tool-name map, sms-gate.app `SPIKE:` markers)
 - Deploy + demo
 
 ## Disclaimers
