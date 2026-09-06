@@ -36,9 +36,39 @@ export const smsgateProvider: SmsProvider = {
   async verifyAndParse(req, env): Promise<InboundSms | null> {
     const raw = await req.text();
 
-    // SPIKE: sms-gate.app signs webhooks as HMAC-SHA256 with headers X-Signature
-    // (hex) and X-Timestamp. Confirm whether the signed value is `${timestamp}`
-    // + raw body, or the raw body alone.
+    if (env.SMS_DEBUG === "1") {
+      const hdrs = Object.fromEntries([...req.headers.entries()]);
+      console.log(`[smsgate:inbound] headers=${JSON.stringify(hdrs)}`);
+      console.log(`[smsgate:inbound] body=${JSON.stringify(raw).slice(0, 1400)}`);
+      if (env.SMSGATE_WEBHOOK_SECRET) {
+        const secret = env.SMSGATE_WEBHOOK_SECRET;
+        const sig = (req.headers.get("x-signature") ?? "").trim().toLowerCase().replace(/^sha256=/, "");
+        const ts = req.headers.get("x-timestamp") ?? "";
+        let evId = "";
+        try {
+          evId = (JSON.parse(raw) as { id?: string }).id ?? "";
+        } catch {
+          /* ignore */
+        }
+        const cands: Record<string, string> = {
+          "ts+body": ts + raw,
+          body: raw,
+          "body+ts": raw + ts,
+          "ts.body": `${ts}.${raw}`,
+          "id.ts": `${evId}.${ts}`,
+          "id+ts": evId + ts,
+          "ts.id": `${ts}.${evId}`,
+          "id.ts.body": `${evId}.${ts}.${raw}`,
+        };
+        for (const [label, data] of Object.entries(cands)) {
+          console.log(`[smsgate:inbound] sig(${label}) match=${await validSig(secret, data, sig)}`);
+        }
+      }
+    }
+
+    // sms-gate.app signs webhooks HMAC-SHA256 over `${timestamp}${rawBody}`,
+    // header `x-signature` (hex), timestamp in `x-timestamp`. Confirmed by
+    // spike-smsgate / SMS_DEBUG capture 2026-09-06.
     if (env.SMSGATE_WEBHOOK_SECRET) {
       const sig = req.headers.get("x-signature");
       const ts = req.headers.get("x-timestamp") ?? "";

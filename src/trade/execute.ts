@@ -1,5 +1,5 @@
 /**
- * Order execution — the only place BinaText calls a Binance *write* tool.
+ * Order execution - the only place BinaText calls a Binance *write* tool.
  * Reached only after: deterministic guard passed at proposal time, a correct
  * single-use PIN, and here a fresh-price slippage check + a second guard pass.
  */
@@ -34,7 +34,7 @@ export async function runProposal(
   try {
     price = await getTickerPrice(agent, ctx.toolMap, proposal.symbol);
   } catch (err) {
-    return classify(err, "Couldn't fetch a current price to check the order — try again.");
+    return classify(err, "Could not fetch a current price to check the order - try again.");
   }
 
   // 2. slippage
@@ -42,7 +42,7 @@ export async function runProposal(
   if (movePct > ctx.slippageAbortPct) {
     return {
       kind: "aborted",
-      message: `Price moved ${movePct.toFixed(1)}% since the proposal ($${proposal.quotePrice} → $${price}). Send the request again.`,
+      message: `Price moved ${movePct.toFixed(1)}% since the proposal ($${proposal.quotePrice} to $${price}). Send the request again.`,
     };
   }
 
@@ -59,12 +59,12 @@ export async function runProposal(
 
   // 4a. read-only: never touch the exchange
   if (ctx.accessLevel === "read-only") {
-    return { kind: "stub", message: `Read-only mode — would place: ${restated}. Connect with Full access to trade for real.` };
+    return { kind: "stub", message: `Read-only mode - would place: ${restated}. Connect with Full access to trade for real.` };
   }
 
   // 4b. full: place it
   if (!ctx.toolMap.placeOrder) {
-    return { kind: "error", message: "Order tool not available — reconnect and grant the Trade scope." };
+    return { kind: "error", message: "Order tool not available - reconnect and grant the Trade scope." };
   }
   try {
     const raw = await agent.mcp.callTool({
@@ -107,7 +107,7 @@ export async function cancelOpenOrders(
     const txt = mcpText(raw) ?? "";
     return { message: `Open orders cancelled.${txt ? ` (${txt.slice(0, 120)})` : ""}` };
   } catch (err) {
-    return { message: `Couldn't cancel open orders: ${shortReason(err)}` };
+    return { message: `Could not cancel open orders: ${shortReason(err)}` };
   }
 }
 
@@ -143,7 +143,7 @@ export function parseOrderResponse(raw: unknown, fallbackUsd: number): Fill {
 function classify(err: unknown, generic: string): ExecuteResult {
   const msg = String((err as Error)?.message ?? "").toLowerCase();
   if (/unauthor|401|token|invalid.?grant|expired/.test(msg)) {
-    return { kind: "auth_error", message: "Your Binance session expired — reconnect, then resend the order." };
+    return { kind: "auth_error", message: "Your Binance session expired - reconnect, then resend the order." };
   }
   return { kind: "error", message: generic };
 }

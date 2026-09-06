@@ -96,26 +96,28 @@ export function decideConfirmation(
 // ─────────────────────────────  copy  ────────────────────────────────────────
 // Centralised so the smoke test and the DO assert/send the same strings.
 
+// All ASCII on purpose: non-GSM-7 characters force UCS-2 SMS encoding, which
+// halves the per-segment length and can cost more.
 export const MSG = {
   welcome:
-    "BinaText lets you trade your Binance account by text. Reply START to connect " +
-    "(you authorise on Binance directly — BinaText never sees your keys and can't withdraw).",
+    "BinaText lets you trade your Binance account by text. Reply START to connect. " +
+    "You authorise on Binance directly - BinaText never sees your keys and cannot withdraw.",
   connectLink: (url: string) =>
     `Open this in a browser to connect Binance:\n${url}\nPick Read-only to try it with no deposit.`,
   mustFinish: (url: string) => `Finish connecting first:\n${url}`,
   reset: "Disconnected. Your tokens, alerts and any pending order are cleared. Reply START to reconnect.",
   connected: (level: AccessLevel) =>
     level === "read-only"
-      ? "Connected (read-only). Try: what's BTC doing? · how am I positioned? · put $5 into BNB"
-      : "Connected. Try: what's BTC doing? · how am I positioned? · put $5 into BNB",
+      ? "Connected (read-only). Try: what is BTC doing? / how am I positioned? / put $5 into BNB"
+      : "Connected. Try: what is BTC doing? / how am I positioned? / put $5 into BNB",
   cancelled: "Cancelled. No order placed.",
-  stopped: "Stopped — pending order discarded and open orders cancelled.",
+  stopped: "Stopped - pending order discarded and open orders cancelled.",
   expired: "That confirmation expired. Send the request again.",
-  badPin: (left: number) => `PIN incorrect. ${left} ${left === 1 ? "try" : "tries"} left — reply YES <PIN>.`,
-  locked: "Too many wrong PINs. Proposal discarded — send the request again.",
+  badPin: (left: number) => `PIN incorrect. ${left} ${left === 1 ? "try" : "tries"} left - reply YES <PIN>.`,
+  locked: "Too many wrong PINs. Proposal discarded - send the request again.",
   reprompt: (pin: string) => `You have a pending order (PIN ${pin}). Reply YES ${pin} to confirm, or NO to cancel.`,
   authExpired: (url: string) => `Your Binance session expired. Reconnect:\n${url}`,
-  busy: "Working on your last order — one moment.",
+  busy: "Working on your last order - one moment.",
   readOnlyStub: (restated: string) =>
-    `Read-only mode — would place: ${restated}. Connect with Full access to trade for real.`,
+    `Read-only mode - would place: ${restated}. Connect with Full access to trade for real.`,
 } as const;

@@ -28,6 +28,7 @@ export default {
       if (path === "/sms/smsgate" || path === "/sms/twilio") return await handleSms(request, env, ctx);
       if (path === "/connect") return await handleConnect(request, env);
       if (path === "/setup") return await handleSetup(request, env);
+      if (path === "/debug/mcp") return await handleDebugMcp(request, env);
       if (path.startsWith("/agents/")) {
         return (await routeAgentRequest(request, env)) ?? notFound();
       }
@@ -58,6 +59,15 @@ async function handleSms(request: Request, env: Env, ctx: ExecutionContext): Pro
     throw err;
   }
   if (!inbound) return provider.ackResponse(); // not a message we act on
+
+  // Echo guard: never process a message that came from the gateway's own SIM.
+  const selfNums = new Set(
+    (env.GATEWAY_NUMBERS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+  );
+  if (selfNums.has(inbound.from)) {
+    console.warn(`[sms] dropping inbound from gateway's own number ${inbound.from}`);
+    return provider.ackResponse();
+  }
 
   const hash = await phoneHash(inbound.from);
 
@@ -131,6 +141,24 @@ async function handleSetup(request: Request, env: Env): Promise<Response> {
   const res = await agent.beginOAuth("", "full", env.SETUP_SECRET, phone);
   if (res.authUrl) return Response.redirect(res.authUrl, 302);
   return html(res.error ?? "Operator connected.");
+}
+
+// ── /debug/mcp (Phase 0 spike; SETUP_SECRET-gated) ───────────────────────────
+
+async function handleDebugMcp(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  if (!env.SETUP_SECRET || url.searchParams.get("s") !== env.SETUP_SECRET) {
+    return new Response("forbidden", { status: 403 });
+  }
+  let phone: string;
+  try {
+    phone = normalizeE164(url.searchParams.get("phone") ?? "");
+  } catch {
+    return new Response("phone must be E.164", { status: 400 });
+  }
+  const agent = await getAgentByName<Env, TraderAgent>(env.TraderAgent, await phoneHash(phone));
+  const out = await agent.debugMcp();
+  return new Response(JSON.stringify(out, null, 2), { headers: { "content-type": "application/json" } });
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

@@ -64,7 +64,7 @@ export class TraderAgent extends Agent<Env> {
         }
         return new Response(
           `<!doctype html><meta name=viewport content="width=device-width"><body style="font:16px system-ui;padding:2rem">
-           <h3>${result.authSuccess ? "Connected ✓" : "Couldn't connect"}</h3>
+           <h3>${result.authSuccess ? "Connected" : "Could not connect"}</h3>
            <p>${result.authSuccess ? "Close this tab and go back to your messages." : "Text START again to retry."}</p>`,
           { headers: { "content-type": "text/html" }, status: result.authSuccess ? 200 : 400 },
         );
@@ -88,6 +88,23 @@ export class TraderAgent extends Agent<Env> {
   /** Inbound SMS. `ctx.waitUntil`-ed by the Worker; replies are sent async. */
   async handleInboundSms(from: string, body: string, msgId: string): Promise<void> {
     if (this.#seen(msgId)) return;
+
+    // Loop breaker: some Android/carrier setups echo the gateway's own SENT
+    // messages back as "received". If this inbound is verbatim something we sent
+    // in the last 15 min, it's an echo — drop it, never reply.
+    if (this.#wasRecentlySent(body)) {
+      this.#audit("echo_dropped", { body: body.slice(0, 80) });
+      return;
+    }
+
+    // Circuit breaker: if this DO has fired a burst of replies, something is
+    // looping — stop paying for SMS until it's investigated.
+    if (this.#outboundBurst()) {
+      this.#audit("circuit_open", {});
+      console.error(`[agent] circuit breaker OPEN for ${maskPhone(from)} — too many recent sends`);
+      return;
+    }
+
     this.#kv("phone", from);
     this.#audit("inbound", { from: maskPhone(from), body });
     this.#appendHistory("user", body);
@@ -175,6 +192,47 @@ export class TraderAgent extends Agent<Env> {
     };
   }
 
+  /**
+   * Phase 0 MCP spike, exposed via GET /debug/mcp. After the Binance consent:
+   * did the connection go ready, what are the real tool names, does a market-data
+   * call work, and is there a usable token lifetime?
+   */
+  async debugMcp(): Promise<Record<string, unknown>> {
+    const servers = this.getMcpServers();
+    const server = servers.servers["binance"];
+    const toolNames = servers.tools.filter((t) => t.serverId === "binance").map((t) => t.name);
+    const toolMap = discoverToolMap(this as never);
+
+    let sampleTicker: unknown;
+    try {
+      sampleTicker = await getTickerPrice(this as never, toolMap, "BTCUSDT");
+    } catch (err) {
+      sampleTicker = `ERROR: ${(err as Error).message}`;
+    }
+
+    let sampleBalance: unknown;
+    if (toolMap.balances) {
+      try {
+        const raw = await this.mcp.callTool({ serverId: "binance", name: toolMap.balances, arguments: {} });
+        sampleBalance = JSON.stringify(raw).slice(0, 600);
+      } catch (err) {
+        sampleBalance = `ERROR: ${(err as Error).message}`;
+      }
+    }
+
+    return {
+      connectionState: server?.state ?? "absent",
+      connectionError: server?.error ?? null,
+      grantedScopes: this.#kv("granted_scopes") ?? null,
+      accessLevel: this.#kv("access_level") ?? null,
+      toolCount: toolNames.length,
+      toolNames,
+      resolvedToolMap: toolMap,
+      sampleTicker,
+      sampleBalance,
+    };
+  }
+
   // ── scheduled callbacks ────────────────────────────────────────────────────
 
   async expireProposal(): Promise<void> {
@@ -214,7 +272,7 @@ export class TraderAgent extends Agent<Env> {
       this.sql`UPDATE alerts SET fired_at = ${Date.now()} WHERE id = ${a.id}`;
       this.#audit("alert_fired", { symbol: a.symbol, direction: a.direction, threshold: a.threshold, price });
       await this.#say(
-        `${a.symbol.replace(/USDT$/, "")} is $${price} — ${a.direction} your $${a.threshold} alert.`,
+        `${a.symbol.replace(/USDT$/, "")} is $${price} - ${a.direction} your $${a.threshold} alert.`,
       );
     }
   }
@@ -245,6 +303,10 @@ export class TraderAgent extends Agent<Env> {
   async #onConnected(): Promise<void> {
     const level = (this.#kv("pending_level") as AccessLevel) ?? "read-only";
     this.#kv("access_level", level);
+    this.#kv(
+      "granted_scopes",
+      level === "full" ? "market-data,account,trade,transfer" : "market-data,account",
+    );
     this.#kv("mcp_auth_dead", "");
     // Cache the discovered tool names so later calls don't re-list.
     this.#kv("tool_map", JSON.stringify(discoverToolMap(this as never)));
@@ -428,7 +490,7 @@ export class TraderAgent extends Agent<Env> {
       return { ok: false, message: `I can only trade ${policy.allowedSymbols.join(", ")}.` };
     }
     if (!binanceStatus(this as never).ready) {
-      return { ok: false, message: "Not connected to Binance — text RESET then START to reconnect." };
+      return { ok: false, message: "Not connected to Binance - text RESET then START to reconnect." };
     }
 
     let price: number;
@@ -497,6 +559,21 @@ export class TraderAgent extends Agent<Env> {
     this.sql`CREATE TABLE IF NOT EXISTS seen_msg (msg_id TEXT PRIMARY KEY, ts INTEGER)`;
     this.sql`CREATE TABLE IF NOT EXISTS history (ts INTEGER, role TEXT, content TEXT)`;
     this.sql`CREATE TABLE IF NOT EXISTS audit (ts INTEGER, kind TEXT, json TEXT)`;
+    this.sql`CREATE TABLE IF NOT EXISTS sent_log (ts INTEGER, hash TEXT)`;
+  }
+
+  /** Whether `body` matches a message this DO sent in the last 15 minutes (echo detection). */
+  #wasRecentlySent(body: string): boolean {
+    const h = quickHash(body.trim());
+    const cutoff = Date.now() - 15 * 60_000;
+    this.sql`DELETE FROM sent_log WHERE ts < ${cutoff}`;
+    return this.sql`SELECT 1 FROM sent_log WHERE hash = ${h}`.length > 0;
+  }
+
+  /** More than 6 sends in the last 10 minutes -> something is looping. */
+  #outboundBurst(): boolean {
+    const cutoff = Date.now() - 10 * 60_000;
+    return this.sql<{ n: number }>`SELECT COUNT(*) n FROM sent_log WHERE ts > ${cutoff}`[0]!.n > 6;
   }
 
   #kv(key: string, val?: string): string | undefined {
@@ -585,6 +662,7 @@ export class TraderAgent extends Agent<Env> {
   async #say(body: string): Promise<void> {
     const to = this.#kv("phone");
     if (!to) return;
+    this.sql`INSERT INTO sent_log (ts, hash) VALUES (${Date.now()}, ${quickHash(body.trim())})`;
     this.#audit("outbound", { body });
     await getSmsProvider(this.env).send(to, body, this.env);
   }
@@ -611,6 +689,7 @@ export class TraderAgent extends Agent<Env> {
     this.sql`DELETE FROM alerts`;
     this.sql`DELETE FROM history`;
     this.sql`DELETE FROM audit`;
+    this.sql`DELETE FROM sent_log`;
     this.sql`DELETE FROM kv`;
     await this.cancelSchedule("pollAlerts").catch(() => {});
     this.#setState("UNREGISTERED");
@@ -618,6 +697,13 @@ export class TraderAgent extends Agent<Env> {
 }
 
 // ── module helpers ───────────────────────────────────────────────────────────
+
+/** Small non-crypto hash for echo/dedup checks (djb2). */
+function quickHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 
 /** "bnb" / "BNB" / "bnbusdt" -> "BNBUSDT". Leaves other quote pairs alone. */
 export function normalizeSymbol(raw: string): string {
