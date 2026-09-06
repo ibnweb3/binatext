@@ -1,0 +1,41 @@
+{
+  "name": "binatext",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An AI trading agent you operate entirely over SMS, built on the official Binance Agent OS MCP server.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke:guard": "vitest run test/smoke-guard.test.ts",
+    "smoke:statemachine": "vitest run test/smoke-statemachine.test.ts",
+    "smoke:sms": "tsx --env-file-if-exists=.dev.vars scripts/smoke-sms.ts",
+    "spike:model": "tsx --env-file-if-exists=.dev.vars scripts/spike-model-tools.ts",
+    "spike:textbee": "tsx --env-file-if-exists=.dev.vars scripts/spike-textbee.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.0",
+    "@ai-sdk/groq": "^4.0.0",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "agents": "^0.22.0",
+    "ai": "^7.0.0",
+    "hono": "^4.13.0",
+    "workers-ai-provider": "^4.0.0",
+    "zod": "^4.0.0"
+  },
+  "//deps": "Resolved against npm 2026-09. 'agents' >=0.22 has addMcpServer() OAuth + DurableObjectOAuthClientProvider; it peer-wants zod 4. Re-verify at Phase 0 spike time.",
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.0.0",
+    "@types/node": "^26.4.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.0.0"
+  }
+}

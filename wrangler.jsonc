@@ -1,0 +1,58 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "binatext",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "workers_dev": true,
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "TraderAgent", "class_name": "TraderAgent" },
+      { "name": "AlertRegistry", "class_name": "AlertRegistry" }
+    ]
+  },
+  // SQLite-backed DOs — verify this is on the account's free plan (see plan R5).
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["TraderAgent", "AlertRegistry"] }
+  ],
+
+  "ai": { "binding": "AI" },
+
+  // Alert-poll liveness backstop; the DO alarm is the primary mechanism.
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  "vars": {
+    "BINANCE_MCP_URL": "https://agent.binance.com/mcp/agentic",
+
+    // Locked by scripts/spike-model-tools.ts (2026-09-06): gpt-oss-120b on Groq
+    // scored 10/10 9/10 10/10 10/10 10/10 across the 5 demo intents.
+    "MODEL_PROVIDER": "groq",
+    "MODEL_ID": "openai/gpt-oss-120b",
+    "MODEL_FALLBACKS": "groq:openai/gpt-oss-20b,workers-ai:@cf/openai/gpt-oss-120b,anthropic:claude-haiku-4-5",
+
+    "SMS_PROVIDER": "textbee",
+
+    "MAX_ORDER_USD": "5",
+    "DAILY_USD_CAP": "20",
+    "ALLOWED_SYMBOLS": "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT",
+
+    "PROPOSAL_TTL_SECONDS": "300",
+    "MAX_PIN_ATTEMPTS": "3",
+    "SLIPPAGE_ABORT_PCT": "1.5",
+
+    "ONBOARD_CODE_TTL_SECONDS": "900",
+    "NEW_NUMBERS_PER_HOUR": "30",
+
+    "PUBLIC_HOST": "binatext.example.workers.dev"
+  }
+
+  // Secrets (wrangler secret put — never in this file):
+  //   GROQ_API_KEY
+  //   TEXTBEE_API_KEY  TEXTBEE_DEVICE_ID  TEXTBEE_WEBHOOK_SECRET
+  //   TWILIO_ACCOUNT_SID  TWILIO_AUTH_TOKEN  TWILIO_FROM_NUMBER   (fallback provider)
+  //   OPERATOR_NUMBERS   (E.164, comma-separated — gets the demo sub-account + /setup access)
+  //   SETUP_SECRET       (operator-only /setup)
+  //   ANTHROPIC_API_KEY  (only if the anthropic fallback is used)
+}

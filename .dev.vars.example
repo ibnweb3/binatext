@@ -1,0 +1,36 @@
+# BinaText — local dev secrets.
+#
+#   cp .dev.vars.example .dev.vars   and fill in what you have.
+#
+# `wrangler dev` reads .dev.vars automatically; the spike scripts read it via
+# `tsx --env-file-if-exists=.dev.vars` (npm run spike:model / spike:textbee).
+# In production these are set with `wrangler secret put <NAME>`, never committed.
+#
+# Each feature auto-disables with a startup WARNING if its group is missing, so you
+# can bring the app up with only the pieces you're working on.
+
+# ─── Model (Groq free tier — primary; model openai/gpt-oss-120b) ─────────────
+# Free key: https://console.groq.com/keys
+GROQ_API_KEY=
+# Only needed if MODEL_FALLBACKS reaches the anthropic entry (paid, ~$1 total).
+ANTHROPIC_API_KEY=
+
+# ─── SMS: textbee.dev (primary) ─────────────────────────────────────────────
+# Install "textbee" on an Android phone with a SIM, link it, create an API key.
+# https://textbee.dev  ·  confirm exact endpoints in scripts/spike-textbee.ts
+TEXTBEE_API_KEY=
+TEXTBEE_DEVICE_ID=
+# Shared secret you configure on the textbee webhook; we HMAC-verify inbound with it.
+TEXTBEE_WEBHOOK_SECRET=
+
+# ─── SMS: Twilio (fallback — only if SMS_PROVIDER=twilio) ───────────────────
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=
+
+# ─── Access control ────────────────────────────────────────────────────────
+# E.164, comma-separated. These numbers get the operator/demo sub-account and
+# may hit GET /setup. NOT an allowlist — anyone else onboards via the texted code.
+OPERATOR_NUMBERS=
+# Gates GET /setup (operator OAuth bootstrap). Long random string.
+SETUP_SECRET=
