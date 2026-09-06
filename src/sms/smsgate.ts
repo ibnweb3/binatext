@@ -37,8 +37,9 @@ export const smsgateProvider: SmsProvider = {
     const raw = await req.text();
 
     if (env.SMS_DEBUG === "1") {
-      const hdrs = Object.fromEntries([...req.headers.entries()]);
-      console.log(`[smsgate:inbound] headers=${JSON.stringify(hdrs)}`);
+      console.log(
+        `[smsgate:sig] x-signature=${req.headers.get("x-signature")} x-timestamp=${req.headers.get("x-timestamp")} len=${raw.length}`,
+      );
       console.log(`[smsgate:inbound] body=${JSON.stringify(raw).slice(0, 1400)}`);
       if (env.SMSGATE_WEBHOOK_SECRET) {
         const secret = env.SMSGATE_WEBHOOK_SECRET;

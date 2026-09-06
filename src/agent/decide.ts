@@ -36,19 +36,24 @@ export type OnboardingDecision =
   | { action: "ignore" };
 
 const RESET_WORDS = new Set(["RESET", "DISCONNECT", "LOGOUT"]);
-const START_WORDS = new Set(["START", "BEGIN", "CONNECT"]);
+const CONNECT_WORDS = new Set(["CONNECT", "LINK", "GO"]);
 
+/**
+ * Two-step onboarding: the first message (START, "hi", anything) gets the
+ * welcome, which asks the user to reply CONNECT. Only CONNECT issues the link.
+ * A brand-new number never receives a URL it didn't ask for.
+ */
 export function decideOnboarding(state: FsmState, body: string): OnboardingDecision {
   const t = body.trim().toUpperCase();
 
   if (RESET_WORDS.has(t)) return { action: "reset" };
 
   if (state === "UNREGISTERED") {
-    return START_WORDS.has(t) ? { action: "issue_code" } : { action: "welcome" };
+    return CONNECT_WORDS.has(t) ? { action: "issue_code" } : { action: "welcome" };
   }
 
   if (state === "AWAITING_BINANCE_AUTH") {
-    return START_WORDS.has(t) ? { action: "resend_code" } : { action: "must_finish" };
+    return CONNECT_WORDS.has(t) ? { action: "resend_code" } : { action: "must_finish" };
   }
 
   return { action: "ignore" };
@@ -100,8 +105,9 @@ export function decideConfirmation(
 // halves the per-segment length and can cost more.
 export const MSG = {
   welcome:
-    "BinaText lets you trade your Binance account by text. Reply START to connect. " +
-    "You authorise on Binance directly - BinaText never sees your keys and cannot withdraw.",
+    "Welcome to BinaText! Trade your Binance sub-account by SMS - any phone, no app. " +
+    "Reply CONNECT to link your account. You authorise on Binance's own web page; " +
+    "we never see your keys and cannot withdraw.",
   connectLink: (url: string) =>
     `Open this in a browser to connect Binance:\n${url}\nPick Read-only to try it with no deposit.`,
   mustFinish: (url: string) => `Finish connecting first:\n${url}`,

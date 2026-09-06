@@ -17,14 +17,14 @@ function proposal(overrides: Partial<Proposal> = {}): Proposal {
 }
 
 describe("decideOnboarding", () => {
-  it("UNREGISTERED + junk -> welcome", () => {
-    expect(decideOnboarding("UNREGISTERED", "hi there")).toEqual({ action: "welcome" });
+  it.each(["hi there", "START", "start", " begin "])("UNREGISTERED + %s -> welcome first", (b) => {
+    expect(decideOnboarding("UNREGISTERED", b)).toEqual({ action: "welcome" });
   });
-  it.each(["START", "start", " begin ", "Connect"])("UNREGISTERED + %s -> issue_code", (b) => {
+  it.each(["CONNECT", "connect", " link ", "GO"])("UNREGISTERED + %s -> issue_code", (b) => {
     expect(decideOnboarding("UNREGISTERED", b)).toEqual({ action: "issue_code" });
   });
-  it("AWAITING_BINANCE_AUTH + START -> resend_code", () => {
-    expect(decideOnboarding("AWAITING_BINANCE_AUTH", "START")).toEqual({ action: "resend_code" });
+  it("AWAITING_BINANCE_AUTH + CONNECT -> resend_code", () => {
+    expect(decideOnboarding("AWAITING_BINANCE_AUTH", "CONNECT")).toEqual({ action: "resend_code" });
   });
   it("AWAITING_BINANCE_AUTH + other -> must_finish", () => {
     expect(decideOnboarding("AWAITING_BINANCE_AUTH", "what's BTC doing?")).toEqual({ action: "must_finish" });
