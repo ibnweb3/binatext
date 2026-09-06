@@ -71,15 +71,15 @@ See [`CLAUDE.md`](./CLAUDE.md) for the annotated tree and dev commands. Full des
 ## Status
 
 **Done and verified**
+- Full Worker — `index.ts` routing, `TraderAgent` + `AlertRegistry` Durable Objects, MCP wiring, model loop, SMS adapters, cron backstop. `tsc` clean, `wrangler deploy --dry-run` bundles, `wrangler dev` serves locally.
 - Money-safety guard (`src/trade/policy.ts`) — 32 exhaustive cases green
 - PIN + proposal lifecycle (`src/trade/proposals.ts`) — 17 cases green
-- SMS provider interface + textbee / Twilio adapters
-- Model fallback chain (Groq → Workers AI → Anthropic)
+- Onboarding + confirmation state machine (`src/agent/decide.ts`) — 18 cases green
 - **Phase 0 · model reliability** — `openai/gpt-oss-120b` on Groq, 49/50 across the 5 demo intents
 
 **Not done yet**
-- Phase 0 spikes (Binance MCP OAuth from a Worker; one real trade; textbee wire shapes)
-- `TraderAgent` DO, `/connect` onboarding, MCP wiring, alerts, `STOP`
+- Phase 0 spikes: Binance MCP OAuth from a Worker + one real trade (need an Agentic sub-account); textbee wire-format confirmation (need the device)
+- Wire-fixes from the spikes (MCP tool-name map, textbee `SPIKE:` markers)
 - Deploy + demo
 
 ## Disclaimers
