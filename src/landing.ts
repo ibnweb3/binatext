@@ -72,7 +72,8 @@ const HTML = `<!doctype html>
   }
   *,*::before,*::after{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
-  body{margin:0;background:var(--ink);color:var(--text);
+  html,body{height:100%}
+  body{margin:0;background:var(--ink);color:var(--text);overflow:hidden;
     font:400 16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;-webkit-tap-highlight-color:transparent}
   ::selection{background:var(--gold);color:#000}
@@ -80,11 +81,11 @@ const HTML = `<!doctype html>
   .tnum{font-variant-numeric:tabular-nums}
   a{color:var(--gold)}
 
-  .page{max-width:1060px;margin:0 auto;padding:0}
+  /* base layout = mobile: phone fills, compact info pinned below, no page scroll */
+  .page{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 
-  /* ── phone ────────────────────────────────────────────────────────────── */
   .phone{display:flex;flex-direction:column;background:var(--panel);
-    width:100%;min-height:100dvh;border-inline:1px solid var(--line)}
+    flex:1 1 auto;min-height:0;border-bottom:1px solid var(--line)}
   header{position:sticky;top:0;z-index:5;background:rgba(16,16,19,.92);backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line);padding:14px 18px calc(14px + env(safe-area-inset-top))}
   header .top{display:flex;align-items:center;gap:10px}
@@ -121,9 +122,10 @@ const HTML = `<!doctype html>
   .compose{padding:12px 12px 8px;display:flex;gap:9px;align-items:center}
   .field{flex:1;display:flex;align-items:center;gap:8px;background:var(--ink);border:1px solid var(--line);
     border-radius:22px;padding:9px 8px 9px 15px;min-width:0}
-  .field .to{font-size:12px;color:var(--dim);flex:none}
+  .field .to{font-size:10px;letter-spacing:.14em;color:var(--dim);flex:none;
+    border:1px solid var(--line);border-radius:5px;padding:2px 5px}
   .field input{flex:1;min-width:0;background:none;border:0;color:var(--text);font-size:16px;
-    font-family:ui-monospace,monospace;letter-spacing:.09em;outline:none;-webkit-user-select:none;user-select:none}
+    font-family:ui-monospace,monospace;letter-spacing:.14em;outline:none;-webkit-user-select:none;user-select:none}
   .go{flex:none;appearance:none;border:0;cursor:pointer;background:var(--gold);color:#000;text-decoration:none;
     font:600 15px/1 -apple-system,system-ui,sans-serif;padding:12px 18px;border-radius:22px;
     -webkit-user-select:none;user-select:none;transition:transform .12s ease}
@@ -133,47 +135,43 @@ const HTML = `<!doctype html>
   .hint b{color:var(--text)}
   .copied{color:var(--ok)}
 
-  /* ── info column ──────────────────────────────────────────────────────── */
-  .info{padding:0}
-  .facts{padding:26px 20px 10px}
-  .facts h2{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 14px}
-  .lead{margin:0 0 22px;font-size:19px;line-height:1.4;font-weight:500;letter-spacing:-.01em}
+  /* ── info (compact) ───────────────────────────────────────────────────── */
+  .info{flex:0 0 auto;padding:16px 20px calc(16px + env(safe-area-inset-bottom));
+    background:var(--panel);overflow:hidden;display:flex;flex-direction:column;gap:11px}
+  .lead{margin:0;font-size:16px;line-height:1.35;font-weight:600;letter-spacing:-.01em}
   .lead span{color:var(--dim);font-weight:400}
-  .facts ol{margin:0;padding:0;list-style:none;counter-reset:s}
-  .facts li{counter-increment:s;position:relative;padding:0 0 15px 32px;font-size:14.5px}
-  .facts li::before{content:counter(s);position:absolute;left:0;top:-1px;width:21px;height:21px;
-    border:1px solid var(--send-line);border-radius:6px;color:var(--gold);font:600 11px/21px ui-monospace,monospace;text-align:center}
-  .facts li b{font-weight:600}
-  .facts li span{color:var(--dim)}
-  .safe{padding:14px 20px 4px;display:grid;gap:10px}
-  .safe p{margin:0;font-size:13.5px;color:var(--dim);line-height:1.5}
-  .safe p b{color:var(--text);font-weight:600}
-  footer{padding:20px;margin-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--dim);line-height:1.6}
-  footer a{text-decoration:underline;text-underline-offset:2px;color:var(--dim)}
+  .info ol{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:7px}
+  .info li{counter-increment:s;position:relative;padding-left:28px;font-size:13px;line-height:1.4}
+  .info li::before{content:counter(s);position:absolute;left:0;top:0;width:18px;height:18px;
+    border:1px solid var(--send-line);border-radius:5px;color:var(--gold);
+    font:600 10px/18px ui-monospace,monospace;text-align:center}
+  .info li b{font-weight:600}
+  .info li span{color:var(--dim)}
+  .safe{margin:0;font-size:11.5px;line-height:1.5;color:var(--dim)}
+  .safe b{color:var(--text);font-weight:600}
+  footer{margin:0;font-size:10.5px;line-height:1.5;color:var(--dim)}
+  footer a{color:var(--gold)}
 
   @media (prefers-reduced-motion:reduce){
     .msg,.sys,.typing{animation:none}.live{animation:none}main{transition:none}
   }
 
-  /* ── two columns on wide screens ──────────────────────────────────────── */
+  /* ── two columns on wide screens, still one screen, no scroll ──────────── */
   @media (min-width:900px){
-    body{padding:0}
-    .page{display:grid;grid-template-columns:400px 1fr;gap:56px;align-items:center;align-content:center;
-      padding:60px 32px;min-height:100dvh}
-    .phone{min-height:0;height:min(660px,78dvh);align-self:center;
-      border:11px solid var(--bezel);border-radius:46px;
-      overflow:hidden;box-shadow:0 50px 90px -28px rgba(0,0,0,.7),0 0 0 1px var(--line);position:relative}
+    .page{display:grid;grid-template-columns:390px 1fr;gap:clamp(40px,7vw,96px);
+      align-items:center;align-content:center;padding:0 40px;max-width:1080px;margin:0 auto}
+    .phone{flex:none;height:min(650px,84dvh);border-bottom:0;
+      border:11px solid var(--bezel);border-radius:46px;overflow:hidden;position:relative;
+      box-shadow:0 50px 90px -28px rgba(0,0,0,.7),0 0 0 1px var(--line)}
     .phone::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
       width:120px;height:22px;background:var(--bezel);border-radius:0 0 14px 14px;z-index:6}
     header{padding-top:26px}
     .dock{padding-bottom:6px}
-    .hint{padding-bottom:16px}
-    .info{padding:0;max-width:460px;align-self:center}
-    .facts{padding:0}
-    footer{margin-top:20px}
-  }
-  @media (min-width:1180px){
-    .page{grid-template-columns:404px 1fr;gap:88px}
+    .info{flex:none;background:none;padding:0;gap:16px;max-width:440px}
+    .lead{font-size:22px}
+    .info li{font-size:14.5px}
+    .safe{font-size:12.5px}
+    footer{font-size:11px}
   }
 
   @media (prefers-color-scheme:light){
@@ -205,8 +203,8 @@ const HTML = `<!doctype html>
     <div class="dock">
       <div class="compose">
         <label class="field" for="cta">
-          <span class="to mono">To ${NUMBER_DISPLAY}</span>
-          <input id="cta" value="START" readonly tabindex="-1" aria-label="Message to send, prefilled with START"
+          <span class="to mono" aria-hidden="true">SMS</span>
+          <input id="cta" value="START" readonly tabindex="-1" aria-label="Message to send, prefilled with START, to ${NUMBER_DISPLAY}"
             autocomplete="off" autocapitalize="off" spellcheck="false">
         </label>
         <a class="go" id="go" href="sms:${BINATEXT_NUMBER}" role="button">Send</a>
@@ -216,28 +214,15 @@ const HTML = `<!doctype html>
   </div>
 
   <aside class="info">
-    <section class="facts">
-      <p class="lead">Trade your Binance account by text message.<span> No app. Works on any phone.</span></p>
-      <h2>How it works</h2>
-      <ol>
-        <li>Text <b class="mono">START</b> to ${NUMBER_DISPLAY}, then reply <b class="mono">CONNECT</b>.</li>
-        <li>Open the link it sends. Authorise on Binance &mdash; pick <span>Read-only to try it with no deposit</span>, or Full to trade for real.</li>
-        <li>Text it plainly: <span>&ldquo;how am I positioned?&rdquo; &nbsp; &ldquo;alert me if SOL drops under 140&rdquo; &nbsp; &ldquo;sell half my ETH&rdquo;</span></li>
-        <li>Confirm every order with the one-time PIN it texts back. <span>Text STOP to cancel open orders.</span></li>
-      </ol>
-    </section>
-
-    <section class="safe" aria-label="Safety">
-      <p><b>No withdrawal, ever.</b> It connects through Binance Agent OS to a dedicated sub-account. No permission it can request allows moving funds out.</p>
-      <p><b>Hard limits.</b> Per-order and daily USD caps enforced in code, before any order &mdash; not by the language model.</p>
-      <p><b>You hold the keys.</b> Authorisation happens on Binance's site. Revoke anytime from your Binance dashboard.</p>
-    </section>
-
+    <p class="lead">Trade your Binance account by text.<span> No app. Any phone.</span></p>
+    <ol>
+      <li>Text <b class="mono">START</b> to ${NUMBER_DISPLAY}, reply <b class="mono">CONNECT</b>.</li>
+      <li>Open the link. Authorise on Binance <span>&mdash; Read-only needs no deposit</span>.</li>
+      <li>Text it. <span>Every order is confirmed with a one-time PIN.</span> <b class="mono">STOP</b> cancels.</li>
+    </ol>
+    <p class="safe"><b>No withdrawal scope</b> &middot; hard per-order &amp; daily USD caps in code &middot; you authorise on Binance and revoke anytime</p>
     <footer>
-      Independent project for the Binance Agent OS Mini Hackathon. Not affiliated with Binance.
-      Not financial advice &mdash; you are responsible for every order.
-      International SMS isn't supported yet &mdash; Nigerian gateway line only.
-      <br><a href="${REPO_URL}">Source on GitHub</a>
+      Independent &middot; Binance Agent OS Mini Hackathon &middot; not affiliated with Binance &middot; not financial advice &middot; NG SMS line only for now &middot; <a href="${REPO_URL}">GitHub</a>
     </footer>
   </aside>
 
