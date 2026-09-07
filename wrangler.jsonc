@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "binatext",
+  "account_id": "a3b839b4883b7df7da3fd67dc6dee241",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -45,7 +46,7 @@
     "ONBOARD_CODE_TTL_SECONDS": "900",
     "NEW_NUMBERS_PER_HOUR": "30",
 
-    "PUBLIC_HOST": "binatext.docketasp.workers.dev",
+    "PUBLIC_HOST": "binatext.ibnweb3lab.workers.dev",
     "GATEWAY_NUMBERS": "+2347033301963,+2349038486314"
   }
 
