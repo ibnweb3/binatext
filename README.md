@@ -60,7 +60,7 @@ Text `START`, open the link, pick an access level, approve on Binance. You're ta
 ## Live proof
 
 <!-- filled in from the Day 2 demo dry-run -->
-- Deployed Worker: `https://binatext.___.workers.dev`
+- Deployed Worker: `https://binatext.ibnweb3lab.workers.dev`
 - Real order id + response: _(pending)_
 - SMS thread: _(pending)_
 
