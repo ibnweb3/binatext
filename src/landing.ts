@@ -64,6 +64,9 @@ const HTML = `<!doctype html>
 <meta name="theme-color" content="#0a0a0b">
 <title>BinaText — trade Binance by text</title>
 <link rel="icon" href="${FAVICON}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,800;1,700&display=swap">
 <style>
   :root{
     --ink:#0a0a0b;--panel:#101013;--line:#22222a;--text:#e9e9ec;--dim:#8a8a94;
@@ -91,7 +94,7 @@ const HTML = `<!doctype html>
   header .top{display:flex;align-items:center;gap:10px}
   .avatar{width:34px;height:34px;border-radius:9px;background:var(--gold-soft);border:1px solid var(--send-line);
     display:grid;place-items:center;color:var(--gold);font-weight:600;font-size:15px;flex:none}
-  header h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
+  header .ph-name{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em}
   header .sub{margin:0;font-size:12.5px;color:var(--dim)}
   .live{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);
     margin-right:5px;vertical-align:1px;animation:pulse 2.6s ease-in-out infinite}
@@ -136,8 +139,16 @@ const HTML = `<!doctype html>
   .copied{color:var(--ok)}
 
   /* ── info (compact) ───────────────────────────────────────────────────── */
-  .info{flex:0 0 auto;padding:16px 20px calc(16px + env(safe-area-inset-bottom));
-    background:var(--panel);overflow:hidden;display:flex;flex-direction:column;gap:11px}
+  .info{flex:0 0 auto;padding:14px 20px calc(16px + env(safe-area-inset-bottom));
+    background:var(--panel);overflow:hidden;display:flex;flex-direction:column;gap:10px}
+  .brand{margin:0;font-weight:800;line-height:1;letter-spacing:-.02em;
+    font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+    font-size:clamp(40px,12vw,54px);
+    color:var(--gold);
+    background:linear-gradient(176deg,#f7cd75,var(--gold) 52%,#a06b0d);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+  .brand::selection{-webkit-text-fill-color:#000;background:var(--gold)}
   .lead{margin:0;font-size:16px;line-height:1.35;font-weight:600;letter-spacing:-.01em}
   .lead span{color:var(--dim);font-weight:400}
   .info ol{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:7px}
@@ -167,7 +178,8 @@ const HTML = `<!doctype html>
       width:120px;height:22px;background:var(--bezel);border-radius:0 0 14px 14px;z-index:6}
     header{padding-top:26px}
     .dock{padding-bottom:6px}
-    .info{flex:none;background:none;padding:0;gap:16px;max-width:440px}
+    .info{flex:none;background:none;padding:0;gap:20px;max-width:460px}
+    .brand{font-size:clamp(60px,7vw,88px)}
     .lead{font-size:22px}
     .info li{font-size:14.5px}
     .safe{font-size:12.5px}
@@ -190,7 +202,7 @@ const HTML = `<!doctype html>
       <div class="top">
         <div class="avatar">B</div>
         <div>
-          <h1>BinaText</h1>
+          <p class="ph-name">BinaText</p>
           <p class="sub"><span class="live"></span><span class="mono tnum">${NUMBER_DISPLAY}</span></p>
         </div>
       </div>
@@ -214,6 +226,7 @@ const HTML = `<!doctype html>
   </div>
 
   <aside class="info">
+    <h1 class="brand">BinaText</h1>
     <p class="lead">Trade your Binance account by text.<span> No app. Any phone.</span></p>
     <ol>
       <li>Text <b class="mono">START</b> to ${NUMBER_DISPLAY}, reply <b class="mono">CONNECT</b>.</li>
