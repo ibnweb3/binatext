@@ -6,3 +6,7 @@ dist/
 .DS_Store
 .env
 scripts/.artifacts/
+
+# Claude Code tooling — local only
+CLAUDE.md
+.claude/
