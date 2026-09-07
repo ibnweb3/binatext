@@ -46,8 +46,7 @@
     "ONBOARD_CODE_TTL_SECONDS": "900",
     "NEW_NUMBERS_PER_HOUR": "30",
 
-    "PUBLIC_HOST": "binatext.ibnweb3lab.workers.dev",
-    "GATEWAY_NUMBERS": "+2347033301963,+2349038486314"
+    "PUBLIC_HOST": "binatext.ibnweb3lab.workers.dev"
   }
 
   // Secrets (wrangler secret put — never in this file):

@@ -35,3 +35,6 @@ TWILIO_FROM_NUMBER=
 OPERATOR_NUMBERS=
 # Gates GET /setup (operator OAuth bootstrap). Long random string.
 SETUP_SECRET=
+# E.164 SIM number(s) of the Android phone running the SMS gateway, comma-separated.
+# Inbound from these is dropped so the gateway can't loop on its own sent messages.
+GATEWAY_NUMBERS=

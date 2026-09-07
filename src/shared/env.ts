@@ -31,8 +31,6 @@ export interface Env {
   ONBOARD_CODE_TTL_SECONDS: string;
   NEW_NUMBERS_PER_HOUR: string;
   PUBLIC_HOST: string;
-  /** E.164 numbers of the SMS gateway's own SIM(s) — inbound from these is dropped (echo guard). */
-  GATEWAY_NUMBERS: string;
 
   // secrets (may be undefined)
   GROQ_API_KEY?: string;
@@ -45,6 +43,9 @@ export interface Env {
   TWILIO_FROM_NUMBER?: string;
   OPERATOR_NUMBERS?: string;
   SETUP_SECRET?: string;
+
+  /** E.164 SIM number(s) of the SMS gateway phone, comma-separated — inbound from these is dropped (echo guard). Secret. */
+  GATEWAY_NUMBERS?: string;
 
   /** "1" -> log raw inbound SMS webhook headers/body (spike only; unset in prod). */
   SMS_DEBUG?: string;
