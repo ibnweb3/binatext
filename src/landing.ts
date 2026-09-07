@@ -30,28 +30,28 @@ const FAVICON =
 // The simulated thread — the same copy BinaText actually sends over SMS.
 // `think` = typing-indicator time before a reply; `after` = pause before the next line.
 const SCRIPT = [
-  { who: "you", t: "START", after: 1300 },
+  { who: "you", t: "START", after: 900 },
   {
     who: "bina",
-    think: 1700,
-    after: 2100,
+    think: 1500,
+    after: 1600,
     t: "Welcome to BinaText! Trade your Binance sub-account by SMS - any phone, no app. Reply CONNECT to link your account. You authorise on Binance's own web page; we never see your keys and cannot withdraw.",
   },
-  { who: "you", t: "CONNECT", after: 1300 },
+  { who: "you", t: "CONNECT", after: 900 },
   {
     who: "bina",
-    think: 1700,
-    after: 1800,
+    think: 1500,
+    after: 1400,
     t: `Open this to connect Binance:\n${CONNECT_HOST}/connect\nPick Read-only - try it with no deposit.`,
   },
-  { who: "sys", t: "Authorised on Binance · Read-only", after: 1400 },
-  { who: "bina", think: 1100, after: 2000, t: "Connected. Text me anything - “how am I positioned?”, “put $5 into BNB”." },
-  { who: "you", t: "what is BTC doing?", after: 1200 },
-  { who: "bina", think: 1400, after: 2400, tnum: true, t: "BTC $61,240, +1.8% over 24h. Range 60,100-61,900." },
-  { who: "you", t: "put $5 into BNB", after: 1200 },
-  { who: "bina", think: 1700, after: 2000, t: "Order: BUY ~$5.00 of BNB @ ~$612 (MARKET).\nReply YES 4821 to confirm. Expires in 5 min." },
-  { who: "you", t: "YES 4821", after: 1300 },
-  { who: "bina", think: 1500, after: 0, tnum: true, t: "Filled. BUY 0.00817 BNB for ~$5.00 (avg $611.9). Order 448210327." },
+  { who: "sys", t: "Authorised on Binance · Read-only", after: 1100 },
+  { who: "bina", think: 1000, after: 1500, t: "Connected. Text me anything - “how am I positioned?”, “put $5 into BNB”." },
+  { who: "you", t: "what is BTC doing?", after: 900 },
+  { who: "bina", think: 1300, after: 1800, tnum: true, t: "BTC $61,240, +1.8% over 24h. Range 60,100-61,900." },
+  { who: "you", t: "put $5 into BNB", after: 900 },
+  { who: "bina", think: 1500, after: 1500, t: "Order: BUY ~$5.00 of BNB @ ~$612 (MARKET).\nReply YES 4821 to confirm. Expires in 5 min." },
+  { who: "you", t: "YES 4821", after: 1000 },
+  { who: "bina", think: 1400, after: 0, tnum: true, t: "Filled. BUY 0.00817 BNB for ~$5.00 (avg $611.9). Order 448210327." },
 ];
 
 const HTML = `<!doctype html>
@@ -286,11 +286,11 @@ const HTML = `<!doctype html>
   (async function loop(){
     while(true){
       clearThread();
-      await wait(700);
+      await wait(650);
       await runOnce();
-      await wait(5200);
+      await wait(4200);
       thread.style.opacity="0";
-      await wait(500);
+      await wait(480);
       thread.style.opacity="1";
     }
   })();
