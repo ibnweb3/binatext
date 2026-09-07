@@ -141,14 +141,24 @@ const HTML = `<!doctype html>
   /* ── info (compact) ───────────────────────────────────────────────────── */
   .info{flex:0 0 auto;padding:14px 20px calc(16px + env(safe-area-inset-bottom));
     background:var(--panel);overflow:hidden;display:flex;flex-direction:column;gap:10px}
-  .brand{margin:0;font-weight:800;line-height:1;letter-spacing:-.02em;
-    font-family:"Playfair Display",Georgia,"Times New Roman",serif;
-    font-size:clamp(40px,12vw,54px);
-    color:var(--gold);
-    background:linear-gradient(176deg,#f7cd75,var(--gold) 52%,#a06b0d);
+  .brand{margin:0;font-weight:800;line-height:1;letter-spacing:-.02em;color:var(--gold);
+    font-family:"Playfair Display",Georgia,"Times New Roman",serif;font-size:clamp(40px,12vw,54px);
+    animation:brandGlow 3.4s ease-in-out infinite}
+  .brand .ch{display:inline-block;transform-origin:50% 80%;
+    background:linear-gradient(180deg,#ffe7ab 0%,#f4c665 40%,var(--gold) 62%,#9a640b 100%);
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-    filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
-  .brand::selection{-webkit-text-fill-color:#000;background:var(--gold)}
+    animation:brandPop 3s cubic-bezier(.2,1.65,.32,1) infinite;
+    animation-delay:calc(var(--i) * 100ms)}
+  .brand .ch::selection{-webkit-text-fill-color:#000;background:var(--gold)}
+  @keyframes brandPop{
+    0%{opacity:.5;transform:translateY(9px) scale(.62) rotate(-6deg)}
+    11%{opacity:1;transform:translateY(-2px) scale(1.12) rotate(2deg)}
+    20%,100%{opacity:1;transform:none}
+  }
+  @keyframes brandGlow{
+    0%,100%{filter:drop-shadow(0 1px 5px rgba(232,163,23,.22)) drop-shadow(0 0 16px rgba(232,163,23,.10))}
+    50%{filter:drop-shadow(0 1px 9px rgba(232,163,23,.5)) drop-shadow(0 0 30px rgba(232,163,23,.28))}
+  }
   .lead{margin:0;font-size:16px;line-height:1.35;font-weight:600;letter-spacing:-.01em}
   .lead span{color:var(--dim);font-weight:400}
   .info ol{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:7px}
@@ -165,6 +175,8 @@ const HTML = `<!doctype html>
 
   @media (prefers-reduced-motion:reduce){
     .msg,.sys,.typing{animation:none}.live{animation:none}main{transition:none}
+    .brand{animation:none;filter:drop-shadow(0 0 9px rgba(232,163,23,.32))}
+    .brand .ch{animation:none;opacity:1;transform:none}
   }
 
   /* ── two columns on wide screens, still one screen, no scroll ──────────── */
@@ -226,7 +238,7 @@ const HTML = `<!doctype html>
   </div>
 
   <aside class="info">
-    <h1 class="brand">BinaText</h1>
+    <h1 class="brand" aria-label="BinaText"><span class="ch" style="--i:0">B</span><span class="ch" style="--i:1">i</span><span class="ch" style="--i:2">n</span><span class="ch" style="--i:3">a</span><span class="ch" style="--i:4">T</span><span class="ch" style="--i:5">e</span><span class="ch" style="--i:6">x</span><span class="ch" style="--i:7">t</span></h1>
     <p class="lead">Trade your Binance account by text.<span> No app. Any phone.</span></p>
     <ol>
       <li>Text <b class="mono">START</b> to ${NUMBER_DISPLAY}, reply <b class="mono">CONNECT</b>.</li>
