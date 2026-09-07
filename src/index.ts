@@ -14,6 +14,7 @@ import { BadPhoneNumberError, normalizeE164, phoneHash } from "./shared/phone.ts
 import type { AccessLevel } from "./agent/decide.ts";
 import { TraderAgent } from "./agent.ts";
 import { AlertRegistry } from "./registry.ts";
+import { landingPage } from "./landing.ts";
 import { scheduled } from "./scheduled.ts";
 
 export { TraderAgent, AlertRegistry };
@@ -32,11 +33,7 @@ export default {
       if (path.startsWith("/agents/")) {
         return (await routeAgentRequest(request, env)) ?? notFound();
       }
-      if (path === "/") {
-        return new Response("BinaText — text START to the number to try it.", {
-          headers: { "content-type": "text/plain" },
-        });
-      }
+      if (path === "/") return landingPage();
       return notFound();
     } catch (err) {
       console.error(`[fetch] ${path}: ${(err as Error).stack ?? err}`);
