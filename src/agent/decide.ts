@@ -105,11 +105,11 @@ export function decideConfirmation(
 // halves the per-segment length and can cost more.
 export const MSG = {
   welcome:
-    "Welcome to BinaText! Trade your Binance sub-account by SMS - any phone, no app. " +
-    "Reply CONNECT to link your account. You authorise on Binance's own web page; " +
-    "we never see your keys and cannot withdraw.",
+    "Welcome to BinaText! Check prices and trade over SMS - any phone, no app, " +
+    "built on Binance Agent OS. Reply CONNECT to start. Every order needs a PIN, " +
+    "hard USD caps apply, and nothing here can withdraw funds.",
   connectLink: (url: string) =>
-    `Open this in a browser to connect Binance:\n${url}\nPick Read-only to try it with no deposit.`,
+    `Open this to finish setup:\n${url}\nRead-only lets you try the whole flow with no account.`,
   mustFinish: (url: string) => `Finish connecting first:\n${url}`,
   reset: "Disconnected. Your tokens, alerts and any pending order are cleared. Reply START to reconnect.",
   connected: (level: AccessLevel) =>

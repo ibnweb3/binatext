@@ -1,11 +1,15 @@
 /**
- * Order execution - the only place BinaText calls a Binance *write* tool.
- * Reached only after: deterministic guard passed at proposal time, a correct
+ * Order execution - the only place BinaText triggers a Binance *write*.
+ * Reached only after: the deterministic guard passed at proposal time, a correct
  * single-use PIN, and here a fresh-price slippage check + a second guard pass.
+ *
+ * The write itself runs on the operator's machine via the bridge
+ * (src/mcp/bridge.ts): a constrained `claude -p` call to the Binance Agent OS
+ * `spot_newOrder` tool with exactly the arguments computed here.
  */
 
-import type { Agent } from "agents";
-import { BINANCE_SERVER_ID, getTickerPrice, mcpText, type ToolMap } from "../mcp/binance.ts";
+import type { Env } from "../shared/env.ts";
+import { bridgeCall, bridgeGetPrice, BridgeError } from "../mcp/bridge.ts";
 import { enforceOrderPolicy, type OrderPolicyConfig } from "./policy.ts";
 import { restate, type Proposal } from "./proposals.ts";
 import type { AccessLevel } from "../agent/decide.ts";
@@ -18,10 +22,9 @@ export type ExecuteResult =
   | { kind: "error"; message: string };
 
 export async function runProposal(
-  agent: Agent<never>,
+  env: Env,
   proposal: Proposal,
   ctx: {
-    toolMap: ToolMap;
     accessLevel: AccessLevel;
     policy: OrderPolicyConfig;
     dailyUsedUsd: number;
@@ -32,13 +35,13 @@ export async function runProposal(
   // 1. fresh price
   let price: number;
   try {
-    price = await getTickerPrice(agent, ctx.toolMap, proposal.symbol);
+    price = await bridgeGetPrice(env, proposal.symbol);
   } catch (err) {
     return classify(err, "Could not fetch a current price to check the order - try again.");
   }
 
   // 2. slippage
-  const movePct = Math.abs(price - proposal.quotePrice) / proposal.quotePrice * 100;
+  const movePct = (Math.abs(price - proposal.quotePrice) / proposal.quotePrice) * 100;
   if (movePct > ctx.slippageAbortPct) {
     return {
       kind: "aborted",
@@ -59,34 +62,31 @@ export async function runProposal(
 
   // 4a. read-only: never touch the exchange
   if (ctx.accessLevel === "read-only") {
-    return { kind: "stub", message: `Read-only mode - would place: ${restated}. Connect with Full access to trade for real.` };
+    return {
+      kind: "stub",
+      message: `Read-only mode - would place: ${restated}. (Real trading runs on the operator's Binance via Agent OS.)`,
+    };
   }
 
-  // 4b. full: place it
-  if (!ctx.toolMap.placeOrder) {
-    return { kind: "error", message: "Order tool not available - reconnect and grant the Trade scope." };
-  }
+  // 4b. full: place it through the bridge
+  const args: Record<string, unknown> = {
+    symbol: proposal.symbol,
+    side: proposal.side,
+    type: proposal.type,
+    ...(proposal.type === "MARKET" && proposal.side === "BUY"
+      ? { quoteOrderQty: round2(liveNotional) }
+      : { quantity: round8(liveNotional / price) }),
+    ...(proposal.limitPrice !== undefined ? { price: proposal.limitPrice } : {}),
+  };
+
   try {
-    const raw = await agent.mcp.callTool({
-      serverId: BINANCE_SERVER_ID,
-      name: ctx.toolMap.placeOrder,
-      arguments: {
-        symbol: proposal.symbol,
-        side: proposal.side,
-        type: proposal.type,
-        // Binance spot: quoteOrderQty for a USD-sized market buy; quantity otherwise.
-        ...(proposal.type === "MARKET" && proposal.side === "BUY"
-          ? { quoteOrderQty: round2(liveNotional) }
-          : { quantity: round8(liveNotional / price) }),
-        ...(proposal.limitPrice !== undefined ? { price: proposal.limitPrice } : {}),
-      },
-    });
+    const raw = await bridgeCall<unknown>(env, "place_order", args, { timeoutMs: 45_000 });
     const fill = parseOrderResponse(raw, liveNotional);
     return {
       kind: "filled",
       spentUsd: fill.spentUsd,
       orderId: fill.orderId,
-      raw: mcpText(raw) ?? JSON.stringify(raw),
+      raw: typeof raw === "string" ? raw : JSON.stringify(raw),
       message:
         `Filled. ${proposal.side} ${fill.executedQty} ${proposal.symbol.replace(/USDT$/, "")} ` +
         `for ~$${fill.spentUsd.toFixed(2)}${fill.avgPrice ? ` (avg $${fill.avgPrice})` : ""}. Order ${fill.orderId}.`,
@@ -96,19 +96,17 @@ export async function runProposal(
   }
 }
 
-export async function cancelOpenOrders(
-  agent: Agent<never>,
-  toolMap: ToolMap,
-): Promise<{ message: string }> {
-  const tool = toolMap.cancelAllOrders ?? toolMap.cancelOrder;
-  if (!tool) return { message: "No cancel tool available on this connection." };
-  try {
-    const raw = await agent.mcp.callTool({ serverId: BINANCE_SERVER_ID, name: tool, arguments: {} });
-    const txt = mcpText(raw) ?? "";
-    return { message: `Open orders cancelled.${txt ? ` (${txt.slice(0, 120)})` : ""}` };
-  } catch (err) {
-    return { message: `Could not cancel open orders: ${shortReason(err)}` };
+export async function cancelOpenOrders(env: Env, symbols: string[]): Promise<{ message: string }> {
+  const done: string[] = [];
+  for (const symbol of symbols) {
+    try {
+      await bridgeCall(env, "cancel_all", { symbol }, { timeoutMs: 30_000 });
+      done.push(symbol.replace(/USDT$/, ""));
+    } catch {
+      /* no open orders on that symbol, or transient — ignore */
+    }
   }
+  return { message: done.length ? `Cancelled open orders on ${done.join(", ")}.` : "No open orders to cancel." };
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -121,12 +119,15 @@ interface Fill {
 }
 
 export function parseOrderResponse(raw: unknown, fallbackUsd: number): Fill {
-  const text = mcpText(raw) ?? "";
   let j: Record<string, unknown> = {};
-  try {
-    j = JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    /* leave j empty; fall back below */
+  if (raw && typeof raw === "object") {
+    j = raw as Record<string, unknown>;
+  } else if (typeof raw === "string") {
+    try {
+      j = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      /* leave j empty */
+    }
   }
   const num = (v: unknown) => (v !== undefined && Number.isFinite(Number(v)) ? Number(v) : undefined);
   const executedQty = num(j.executedQty);
@@ -134,16 +135,18 @@ export function parseOrderResponse(raw: unknown, fallbackUsd: number): Fill {
   return {
     executedQty: executedQty !== undefined ? String(executedQty) : "?",
     spentUsd: cummQuote ?? fallbackUsd,
-    avgPrice:
-      executedQty && cummQuote && executedQty > 0 ? (cummQuote / executedQty).toFixed(2) : null,
+    avgPrice: executedQty && cummQuote && executedQty > 0 ? (cummQuote / executedQty).toFixed(2) : null,
     orderId: String(j.orderId ?? j.clientOrderId ?? "?"),
   };
 }
 
 function classify(err: unknown, generic: string): ExecuteResult {
   const msg = String((err as Error)?.message ?? "").toLowerCase();
+  if (err instanceof BridgeError && /offline|respond in time|not configured/.test(msg)) {
+    return { kind: "error", message: "The trading service is offline right now - resend the order shortly." };
+  }
   if (/unauthor|401|token|invalid.?grant|expired/.test(msg)) {
-    return { kind: "auth_error", message: "Your Binance session expired - reconnect, then resend the order." };
+    return { kind: "auth_error", message: "The Binance session on the bridge expired - it needs reconnecting." };
   }
   return { kind: "error", message: generic };
 }

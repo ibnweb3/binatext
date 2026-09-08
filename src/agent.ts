@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { checkReadiness, float, int, operatorNumbers, type Env } from "./shared/env.ts";
 import { getSmsProvider } from "./sms/provider.ts";
-import { maskPhone } from "./shared/phone.ts";
+import { maskPhone, phoneHash } from "./shared/phone.ts";
 import { runAgentTurn } from "./model/loop.ts";
 import {
   MSG,
@@ -36,14 +36,7 @@ import {
 } from "./trade/policy.ts";
 import { remainingToday, utcDay, withinDailyCap } from "./trade/ledger.ts";
 import { cancelOpenOrders, runProposal } from "./trade/execute.ts";
-import {
-  binanceStatus,
-  connectBinance,
-  discoverToolMap,
-  getTickerPrice,
-  readOnlyBinanceTools,
-  type ToolMap,
-} from "./mcp/binance.ts";
+import { bridgeCall, bridgeGetPrice, bridgeReady } from "./mcp/bridge.ts";
 
 const HISTORY_TURNS = 10;
 const DEDUP_TTL_MS = 60 * 60 * 1000;
@@ -53,28 +46,6 @@ export class TraderAgent extends Agent<Env> {
 
   override async onStart(): Promise<void> {
     this.#ensureTables();
-
-    // Page the browser sees after Binance consent; the real work happens in waitUntil.
-    this.mcp.configureOAuthCallback({
-      customHandler: (result) => {
-        if (result.authSuccess) {
-          this.ctx.waitUntil(this.#onConnected());
-        } else {
-          this.#kv("mcp_auth_dead", "1");
-        }
-        return new Response(
-          `<!doctype html><meta name=viewport content="width=device-width"><body style="font:16px system-ui;padding:2rem">
-           <h3>${result.authSuccess ? "Connected" : "Could not connect"}</h3>
-           <p>${result.authSuccess ? "Close this tab and go back to your messages." : "Text START again to retry."}</p>`,
-          { headers: { "content-type": "text/html" }, status: result.authSuccess ? 200 : 400 },
-        );
-      },
-    });
-
-    // Reconcile: if consent completed while we were asleep, catch up.
-    if (this.#getState() === "AWAITING_BINANCE_AUTH" && binanceStatus(this as never).ready) {
-      await this.#onConnected();
-    }
     // Keep the alert poll armed if there are live alerts.
     if (this.#liveAlertCount() > 0) await this.scheduleEvery(120, "pollAlerts");
   }
@@ -132,8 +103,14 @@ export class TraderAgent extends Agent<Env> {
       return this.#handleConfirmation(body);
     }
 
-    // state === "IDLE"
-    return this.#handleIdle(from, body);
+    // state === "IDLE" — the model turn + bridge round-trip can outlast the
+    // inbound webhook's execution budget, so run it as a near-immediate DO task.
+    await this.schedule(1, "runIdleTurn", { from, body });
+  }
+
+  /** Scheduled continuation of an IDLE-state inbound (model loop + bridge calls). */
+  async runIdleTurn(p: { from: string; body: string }): Promise<void> {
+    await this.#handleIdle(p.from, p.body);
   }
 
   /**
@@ -158,21 +135,18 @@ export class TraderAgent extends Agent<Env> {
         return { error: "That link expired. Text START to get a new one." };
       }
     }
-    this.#kv("pending_level", level);
-    try {
-      const conn = await connectBinance(this as never, {
-        url: this.env.BINANCE_MCP_URL,
-        publicHost: this.env.PUBLIC_HOST,
-      });
-      if (conn.authUrl) return { authUrl: conn.authUrl };
-      if (conn.state === "ready") {
-        await this.#onConnected();
-        return {};
-      }
-      return { error: `Connection is ${conn.state}. Try again in a moment.` };
-    } catch (err) {
-      return { error: `Couldn't reach Binance: ${(err as Error).message}` };
-    }
+
+    // Binance Agent OS OAuth only accepts allowlisted host clients, so BinaText
+    // has no per-user Binance session: everyone shares the operator's bridge.
+    // Full (real-trade) access is therefore limited to the operator's own
+    // number; every other number connects read-only.
+    const storedPhone = phone ?? this.#kv("phone") ?? "";
+    const operator = isOperator || operatorNumbers(this.env).has(storedPhone);
+    const resolved: AccessLevel = operator && level === "full" ? "full" : "read-only";
+
+    this.#kv("pending_level", resolved);
+    await this.#onConnected();
+    return {};
   }
 
   /** Cron backstop pokes this (idempotent). */
@@ -185,51 +159,27 @@ export class TraderAgent extends Agent<Env> {
     return {
       state: this.#getState(),
       accessLevel: this.#kv("access_level"),
-      binance: binanceStatus(this as never),
+      bridgeReady: await bridgeReady(this.env),
       alerts: this.#liveAlertCount(),
       usedTodayUsd: this.#usedToday(),
       hasProposal: !!this.#getProposal(),
     };
   }
 
-  /**
-   * Phase 0 MCP spike, exposed via GET /debug/mcp. After the Binance consent:
-   * did the connection go ready, what are the real tool names, does a market-data
-   * call work, and is there a usable token lifetime?
-   */
+  /** Exposed via GET /debug/mcp: is the bridge live and can it read a price through Agent OS? */
   async debugMcp(): Promise<Record<string, unknown>> {
-    const servers = this.getMcpServers();
-    const server = servers.servers["binance"];
-    const toolNames = servers.tools.filter((t) => t.serverId === "binance").map((t) => t.name);
-    const toolMap = discoverToolMap(this as never);
-
     let sampleTicker: unknown;
     try {
-      sampleTicker = await getTickerPrice(this as never, toolMap, "BTCUSDT");
+      sampleTicker = await bridgeGetPrice(this.env, "BTCUSDT");
     } catch (err) {
       sampleTicker = `ERROR: ${(err as Error).message}`;
     }
-
-    let sampleBalance: unknown;
-    if (toolMap.balances) {
-      try {
-        const raw = await this.mcp.callTool({ serverId: "binance", name: toolMap.balances, arguments: {} });
-        sampleBalance = JSON.stringify(raw).slice(0, 600);
-      } catch (err) {
-        sampleBalance = `ERROR: ${(err as Error).message}`;
-      }
-    }
-
     return {
-      connectionState: server?.state ?? "absent",
-      connectionError: server?.error ?? null,
+      transport: "bridge (operator Claude Code session -> Binance Agent OS MCP)",
+      bridgeReady: await bridgeReady(this.env),
       grantedScopes: this.#kv("granted_scopes") ?? null,
       accessLevel: this.#kv("access_level") ?? null,
-      toolCount: toolNames.length,
-      toolNames,
-      resolvedToolMap: toolMap,
       sampleTicker,
-      sampleBalance,
     };
   }
 
@@ -253,13 +203,12 @@ export class TraderAgent extends Agent<Env> {
       this.#registry().removeAlertOwner(this.name);
       return;
     }
-    if (!binanceStatus(this as never).ready) return;
+    if (!(await bridgeReady(this.env))) return;
 
-    const toolMap = this.#toolMap();
     const prices = new Map<string, number>();
     for (const symbol of new Set(rows.map((r) => r.symbol))) {
       try {
-        prices.set(symbol, await getTickerPrice(this as never, toolMap, symbol));
+        prices.set(symbol, await bridgeGetPrice(this.env, symbol));
       } catch {
         /* skip this symbol this tick */
       }
@@ -305,11 +254,9 @@ export class TraderAgent extends Agent<Env> {
     this.#kv("access_level", level);
     this.#kv(
       "granted_scopes",
-      level === "full" ? "market-data,account,trade,transfer" : "market-data,account",
+      level === "full" ? "market-data,account,trade" : "market-data",
     );
     this.#kv("mcp_auth_dead", "");
-    // Cache the discovered tool names so later calls don't re-list.
-    this.#kv("tool_map", JSON.stringify(discoverToolMap(this as never)));
     this.#setState("IDLE");
     this.#audit("connected", { level });
     await this.#say(MSG.connected(level));
@@ -358,8 +305,7 @@ export class TraderAgent extends Agent<Env> {
 
   async #execute(p: Proposal): Promise<void> {
     this.#setState("EXECUTING");
-    const res = await runProposal(this as never, p, {
-      toolMap: this.#toolMap(),
+    const res = await runProposal(this.env, p, {
       accessLevel: (this.#kv("access_level") as AccessLevel) ?? "read-only",
       policy: policyConfigFromEnv(this.env),
       dailyUsedUsd: this.#usedToday(),
@@ -383,9 +329,10 @@ export class TraderAgent extends Agent<Env> {
   }
 
   async #cancelOpen(): Promise<void> {
-    if (!binanceStatus(this as never).ready) return;
     if ((this.#kv("access_level") as AccessLevel) === "read-only") return;
-    const { message } = await cancelOpenOrders(this as never, this.#toolMap());
+    if (!(await bridgeReady(this.env))) return;
+    const symbols = policyConfigFromEnv(this.env).allowedSymbols;
+    const { message } = await cancelOpenOrders(this.env, symbols);
     this.#audit("cancel_open", { message });
   }
 
@@ -397,11 +344,9 @@ export class TraderAgent extends Agent<Env> {
     }
 
     let proposalSent = false;
-    const localTools = this.#buildLocalTools(() => {
+    const tools = this.#buildLocalTools(() => {
       proposalSent = true;
     });
-    const mcpTools = binanceStatus(this as never).ready ? readOnlyBinanceTools(this as never) : {};
-    const tools: ToolSet = { ...mcpTools, ...localTools };
 
     const result = await runAgentTurn({
       env: this.env,
@@ -417,8 +362,44 @@ export class TraderAgent extends Agent<Env> {
 
   #buildLocalTools(onProposal: () => void): ToolSet {
     const nz = <T>(v: T | null | undefined): T | undefined => (v == null ? undefined : v);
+    const fullAccess = (this.#kv("access_level") as AccessLevel) === "full";
 
     return {
+      get_price: tool({
+        description: "Live spot price for a symbol via Binance Agent OS, e.g. BTC or BNBUSDT.",
+        inputSchema: z.object({ symbol: z.string() }),
+        execute: async (a) => {
+          try {
+            const sym = normalizeSymbol(a.symbol);
+            const price = await bridgeGetPrice(this.env, sym);
+            return `${sym} ${price}`;
+          } catch (err) {
+            return (err as Error).message;
+          }
+        },
+      }),
+      get_balances: tool({
+        description: fullAccess
+          ? "The user's Binance spot balances via Binance Agent OS."
+          : "Unavailable in read-only mode.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          if (!fullAccess) return "Balances need Full access. This number is connected read-only.";
+          try {
+            const rows = await bridgeCall<Array<{ asset: string; free: string | number }>>(
+              this.env,
+              "balances",
+              {},
+            );
+            const nonzero = (rows ?? []).filter((r) => Number(r.free) > 0);
+            return nonzero.length
+              ? nonzero.map((r) => `${r.asset}: ${r.free}`).join(", ")
+              : "No non-zero spot balances.";
+          } catch (err) {
+            return (err as Error).message;
+          }
+        },
+      }),
       propose_trade: tool({
         description:
           "Propose a spot BUY or SELL for the user to confirm with a PIN. Use USD amounts unless a coin quantity is clearly meant.",
@@ -489,13 +470,13 @@ export class TraderAgent extends Agent<Env> {
     if (!policy.allowedSymbols.includes(symbol)) {
       return { ok: false, message: `I can only trade ${policy.allowedSymbols.join(", ")}.` };
     }
-    if (!binanceStatus(this as never).ready) {
-      return { ok: false, message: "Not connected to Binance - text RESET then START to reconnect." };
+    if (!(await bridgeReady(this.env))) {
+      return { ok: false, message: "The trading service is offline right now. Try again shortly." };
     }
 
     let price: number;
     try {
-      price = await getTickerPrice(this as never, this.#toolMap(), symbol);
+      price = await bridgeGetPrice(this.env, symbol);
     } catch (err) {
       return { ok: false, message: (err as Error).message };
     }
@@ -604,14 +585,6 @@ export class TraderAgent extends Agent<Env> {
     this.sql`DELETE FROM proposal`;
   }
 
-  #toolMap(): ToolMap {
-    try {
-      return JSON.parse(this.#kv("tool_map") ?? "{}") as ToolMap;
-    } catch {
-      return {};
-    }
-  }
-
   #seen(msgId: string): boolean {
     const cutoff = Date.now() - DEDUP_TTL_MS;
     this.sql`DELETE FROM seen_msg WHERE ts < ${cutoff}`;
@@ -674,17 +647,17 @@ export class TraderAgent extends Agent<Env> {
       this.#kv("onboard_code", code);
       this.#kv("onboard_code_exp", String(Date.now() + int(this.env.ONBOARD_CODE_TTL_SECONDS, 900) * 1000));
     }
+    // `p` must be the SHA-256 phone hash — the same DO name the inbound-SMS path
+    // uses (src/index.ts handleSms) and the exact shape handleConnect validates.
+    // Prefer this.name (the DO was created as getAgentByName(TraderAgent, hash));
+    // fall back to hashing the stored number if the runtime hasn't set it yet.
     const phone = this.#kv("phone") ?? "";
+    const p = /^[0-9a-f]{64}$/.test(this.name ?? "") ? this.name : await phoneHash(phone);
     const host = this.env.PUBLIC_HOST.startsWith("http") ? this.env.PUBLIC_HOST : `https://${this.env.PUBLIC_HOST}`;
-    return `${host}/connect?p=${encodeURIComponent(phone)}&c=${code}`;
+    return `${host}/connect?p=${p}&c=${code}`;
   }
 
   async #reset(): Promise<void> {
-    try {
-      if (this.getMcpServers().servers["binance"]) await this.removeMcpServer("binance");
-    } catch {
-      /* ignore */
-    }
     this.sql`DELETE FROM proposal`;
     this.sql`DELETE FROM alerts`;
     this.sql`DELETE FROM history`;

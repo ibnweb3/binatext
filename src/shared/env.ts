@@ -49,6 +49,14 @@ export interface Env {
 
   /** "1" -> log raw inbound SMS webhook headers/body (spike only; unset in prod). */
   SMS_DEBUG?: string;
+
+  /**
+   * Shared secret for the local Binance bridge (bridge/run.mjs). The bridge polls
+   * /bridge/poll and posts to /bridge/result with this in the x-bridge-secret
+   * header. When set, BinaText reaches Binance Agent OS through the operator's
+   * authenticated Claude Code session instead of its own (allowlist-blocked) OAuth.
+   */
+  BRIDGE_SECRET?: string;
 }
 
 export interface Readiness {
